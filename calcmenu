@@ -1,0 +1,65 @@
+#!/bin/sh
+
+# Toggle launcher
+if pgrep -x wmenu >/dev/null; then
+    pkill -x wmenu
+    exit 0
+fi
+
+# Get expression
+expression=$(printf '' | wmenu -p "Calc:" \
+    -f "JetBrainsMono Nerd Font 16" -l 1 \
+    -N "#1a1b26d9" -n "#2ac3de" \
+    -M "#2ac3de" -m "#1a1b26" \
+    -S "#2ac3de" -s "#1a1b26")
+
+[ -z "$expression" ] && exit 0
+
+# Calculate using Python
+result=$(python -c '
+import ast
+import operator
+import sys
+from decimal import Decimal
+
+ops = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+    ast.USub: operator.neg,
+    ast.UAdd: operator.pos,
+}
+
+def calculate(node):
+    if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+        return Decimal(str(node.value))
+
+    if isinstance(node, ast.BinOp) and type(node.op) in ops:
+        a = calculate(node.left)
+        b = calculate(node.right)
+        return ops[type(node.op)](a, b)
+
+    if isinstance(node, ast.UnaryOp) and type(node.op) in ops:
+        return ops[type(node.op)](calculate(node.operand))
+
+    raise ValueError("Invalid expression")
+
+try:
+    tree = ast.parse(sys.argv[1], mode="eval")
+    result = calculate(tree.body)
+    print(format(result.normalize(), "f"))
+except Exception:
+    sys.exit(1)
+' "$expression" 2>/dev/null)
+
+if [ $? -ne 0 ] || [ -z "$result" ]; then
+    notify-send "Calculator" "Invalid expression"
+    exit 1
+fi
+
+# Copy result
+printf '%s\n' "$result" | wl-copy &&
+    notify-send "Calculator" "Result copied: $result"

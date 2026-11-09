@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# Toggle launcher
+if pgrep -x wmenu >/dev/null; then
+    pkill -x wmenu
+    exit 0
+fi
+
+# Clipboard selection
+selected=$(
+    cliphist list | wmenu -i \
+        -f "JetBrainsMono Nerd Font 16" -l 10 \
+        -N "#1a1b26d9" -n "#2ac3de" \
+        -M "#ff9e64" -m "#1a1b26" \
+        -S "#2ac3de" -s "#1a1b26"
+)
+
+# Exit if cancelled
+[ -z "$selected" ] && exit 0
+
+# Decode and copy selection
+printf '%s\n' "$selected" | cliphist decode | wl-copy

@@ -1,0 +1,116 @@
+#!/bin/sh
+
+menu() {
+    wmenu -i \
+        -f "JetBrainsMono Nerd Font 16" -l 10 \
+        -N "#1a1b26d9" -n "#2ac3de" \
+        -M "#2ac3de" -m "#1a1b26" \
+        -S "#2ac3de" -s "#1a1b26" "$@"
+}
+
+# Toggle launcher
+if pgrep -x wmenu >/dev/null; then
+    pkill -x wmenu
+    exit 0
+fi
+
+# Main menu
+choice=$(
+    printf "Connect Device\nScan & Pair\nDisconnect\nBluetooth On\nBluetooth Off" |
+        menu
+)
+
+[ -z "$choice" ] && exit 0
+
+case "$choice" in
+
+    "Connect Device")
+        devices=$(bluetoothctl devices Paired)
+
+        [ -z "$devices" ] && {
+            notify-send "Bluetooth" "No paired devices"
+            exit 0
+        }
+
+        selected=$(
+            printf '%s\n' "$devices" |
+                while read -r _ mac name; do
+                    [ -n "$mac" ] && printf '%s|%s\n' "$name" "$mac"
+                done |
+                menu
+        )
+
+        [ -z "$selected" ] && exit 0
+
+        mac=${selected##*|}
+
+        if bluetoothctl connect "$mac"; then
+            notify-send "Bluetooth" "Connected"
+        else
+            notify-send "Bluetooth" "Connection failed"
+        fi
+        ;;
+
+    "Scan & Pair")
+        notify-send -t 1000 "Bluetooth" "Scanning..."
+
+        bluetoothctl --timeout 3 scan on >/dev/null 2>&1
+
+        devices=$(bluetoothctl devices)
+
+        [ -z "$devices" ] && {
+            notify-send "Bluetooth" "No devices found"
+            exit 0
+        }
+
+	selected=$(
+	    printf '%s\n' "$devices" |
+		while read -r _ mac name; do
+		    [ -n "$mac" ] && printf '%s|%s\n' "$name" "$mac"
+		done | menu
+	)
+
+	[ -z "$selected" ] && exit 0
+
+	mac=${selected##*|}
+
+        if bluetoothctl info "$mac" | grep -q "Paired: yes"; then
+            notify-send "Bluetooth" "Already paired"
+        elif bluetoothctl pair "$mac"; then
+            bluetoothctl trust "$mac" >/dev/null 2>&1
+            notify-send "Bluetooth" "Device paired"
+        else
+            notify-send "Bluetooth" "Pairing failed"
+        fi
+        ;;
+
+    "Disconnect")
+        devices=$(bluetoothctl devices Connected | sed 's/^Device //')
+
+        [ -z "$devices" ] && {
+            notify-send "Bluetooth" "No connected devices"
+            exit 0
+        }
+
+        selected=$(printf '%s\n' "$devices" | menu)
+        [ -z "$selected" ] && exit 0
+
+        mac=$(printf '%s\n' "$selected" | awk '{print $1}')
+
+        if bluetoothctl disconnect "$mac"; then
+            notify-send "Bluetooth" "Disconnected"
+        fi
+        ;;
+
+    "Bluetooth On")
+        if bluetoothctl power on; then
+            notify-send "Bluetooth" "Bluetooth enabled"
+        fi
+        ;;
+
+    "Bluetooth Off")
+        if bluetoothctl power off; then
+            notify-send "Bluetooth" "Bluetooth disabled"
+        fi
+        ;;
+esac

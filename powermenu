@@ -1,0 +1,20 @@
+#!/bin/sh
+
+choice=$(printf "Logout\nReboot\nShutdown" |
+    wmenu -i \
+    -f "JetBrainsMono Nerd Font 16" -l 10 \
+    -N "#1a1b26d9" -n "#2ac3de" \
+    -M "#ff9e64" -m "#1a1b26" \
+    -S "#2ac3de" -s "#1a1b26")
+
+case "$choice" in
+    "Logout")
+        pkill -TERM -x dwl
+        ;;
+    "Reboot")
+        systemctl reboot
+        ;;
+    "Shutdown")
+        systemctl poweroff
+        ;;
+esac

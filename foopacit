@@ -1,0 +1,26 @@
+#!/bin/sh
+
+CONFIG="$HOME/.config/foot/foot.ini"
+STATE="$HOME/.cache/foot-opacity"
+
+mkdir -p "$HOME/.cache"
+
+if [ ! -f "$STATE" ]; then
+    echo "opaque" > "$STATE"
+fi
+
+if [ "$(cat "$STATE")" = "opaque" ]; then
+    alpha="0.85"
+    echo "transparent" > "$STATE"
+else
+    alpha="1.0"
+    echo "opaque" > "$STATE"
+fi
+
+if grep -q '^[[:space:]]*alpha[[:space:]]*=' "$CONFIG"; then
+    sed -i "s/^[[:space:]]*alpha[[:space:]]*=.*/alpha=$alpha/" "$CONFIG"
+else
+    sed -i "/^\[colors\]/a alpha=$alpha" "$CONFIG"
+fi
+
+pkill -USR1 -x foot

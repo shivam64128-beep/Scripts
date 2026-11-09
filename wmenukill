@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# Toggle launcher
+if pgrep -x wmenu >/dev/null; then
+    pkill -x wmenu
+    exit 0
+fi
+
+selected=$(
+    ps -u "$USER" -o comm= |
+    sed '/^$/d' |
+    sort -u |
+    wmenu -i \
+    -f "JetBrainsMono Nerd Font 16" -l 10 \
+    -N "#1a1b26d9" -n "#2ac3de" \
+    -M "#ff9e64" -m "#1a1b26" \
+    -S "#2ac3de" -s "#1a1b26"
+    )
+
+    [ -z "$selected" ] && exit 0
+
+pkill -TERM -x "$selected"
+
+if [ $? -eq 0 ]; then
+    notify-send "Process killed" "$selected"
+else
+    notify-send "Could not kill process" "$selected"
+fi

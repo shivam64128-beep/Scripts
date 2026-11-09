@@ -1,0 +1,55 @@
+#!/bin/sh
+
+DIR="$HOME/Pictures"
+mkdir -p "$DIR"
+
+choice=$(printf "Fullscreen\nSelect Area\nCopy Fullscreen\nCopy Selected Area\nOpen Screenshot Folder" |
+    wmenu -i \
+    -f "JetBrainsMono Nerd Font 16" -l 10 \
+    -N "#1a1b26d9" -n "#2ac3de" \
+    -M "#ff9e64" -m "#1a1b26" \
+    -S "#2ac3de" -s "#1a1b26")
+
+[ -z "$choice" ] && exit 0
+
+FILE="$DIR/screenshot$(date '+%y%m%d%H%M%S').png"
+
+case "$choice" in
+    "Fullscreen")
+        if grim "$FILE"; then
+            notify-send "Screenshot saved"
+        else
+            notify-send "Screenshot failed" "Could not capture screen"
+        fi
+        ;;
+
+    "Select Area")
+        geometry=$(slurp) || exit 0
+        if grim -g "$geometry" "$FILE"; then
+            notify-send "Screenshot saved"
+        else
+            notify-send "Screenshot failed" "Could not capture selected area"
+        fi
+        ;;
+
+    "Copy Fullscreen")
+        if grim - | wl-copy; then
+            notify-send "Screenshot copied" "Fullscreen copied to clipboard"
+        else
+            notify-send "Screenshot failed" "Could not copy screenshot"
+        fi
+        ;;
+
+    "Copy Selected Area")
+        geometry=$(slurp) || exit 0
+        if grim -g "$geometry" - | wl-copy; then
+            notify-send "Screenshot copied" "Selected area copied"
+        else
+            notify-send "Screenshot failed" "Could not copy selected area"
+        fi
+        ;;
+
+    "Open Screenshot Folder")
+        foot yazi "$DIR"
+        ;;
+esac

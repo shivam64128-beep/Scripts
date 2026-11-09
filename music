@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# Toggle launcher
+if pgrep -x wmenu >/dev/null; then
+    pkill -x wmenu
+    exit 0
+fi
+
+music_dir="$HOME/Music/moosic"
+
+mapfile -d '' files < <(
+    fd -0 -t f . "$music_dir" | sort -z
+)
+
+selected=$(
+    printf '%s\n' "${files[@]##*/}" |
+    wmenu -i \
+        -f "JetBrainsMono Nerd Font 16" \
+        -l 10 \
+        -N "#1a1b26d9" -n "#2ac3de" \
+        -M "#ff9e64" -m "#1a1b26" \
+        -S "#2ac3de" -s "#1a1b26"
+)
+
+[[ -z "$selected" ]] && exit 0
+
+found=false
+playlist=()
+
+for file in "${files[@]}"; do
+    if [[ "$found" == true ]]; then
+        playlist+=("$file")
+    elif [[ "$(basename "$file")" == "$selected" ]]; then
+        found=true
+        playlist+=("$file")
+    fi
+done
+
+if [[ ${#playlist[@]} -gt 0 ]]; then
+    first="${playlist[0]}"
+
+    mapfile -d '' shuffled < <(
+        printf '%s\0' "${playlist[@]:1}" | shuf -z
+    )
+
+    kew play "$first" "${shuffled[@]}" \
+        >/dev/null 2>&1 </dev/null
+fi

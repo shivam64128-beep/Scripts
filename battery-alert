@@ -1,0 +1,13 @@
+#!/bin/sh
+
+while true; do
+    bat=$(cat /sys/class/power_supply/BAT0/capacity)
+    status=$(cat /sys/class/power_supply/BAT0/status)
+
+    if [ "$bat" -le 20 ] && [ "$status" = "Discharging" ]; then
+        notify-send -u critical "󰂃 Low Battery" "Battery is at ${bat}%"
+        sleep 60
+    else
+        sleep 300
+    fi
+done

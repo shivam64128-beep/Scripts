@@ -1,0 +1,26 @@
+#!/bin/sh
+
+pgrep -x wmenu >/dev/null && pkill -x wmenu && exit 0
+
+menu() {
+    wmenu -i -f "JetBrainsMono Nerd Font 16" -l 10 \
+        -N "#1a1b26d9" -n "#2ac3de" \
+        -M "#2ac3de" -m "#1a1b26" \
+        -S "#2ac3de" -s "#1a1b26"
+}
+
+default=$(pactl get-default-sink)
+
+choice=$(pactl -f json list sinks | jq -r --arg d "$default" \
+    '.[] | (if .name == $d then "✓ " else "  " end) + .description' | menu)
+
+[ -z "$choice" ] && exit 0
+
+name=$(pactl -f json list sinks | jq -r --arg d "${choice#??}" \
+    '.[] | select(.description == $d) | .name' | head -n 1)
+
+[ -z "$name" ] && exit 0
+
+pactl set-default-sink "$name" || exit 1
+pactl list short sink-inputs | awk '{print $1}' |
+    while read -r id; do pactl move-sink-input "$id" "$name"; done

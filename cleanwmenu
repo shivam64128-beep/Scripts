@@ -1,0 +1,81 @@
+#!/bin/sh
+
+# Toggle launcher
+if pgrep -x wmenu >/dev/null; then
+    pkill -x wmenu
+    exit 0
+fi
+
+dirs=(
+    /usr/share/applications
+)
+
+declare -A apps
+
+while IFS= read -r -d '' file; do
+    name=$(awk -F= '
+        /^\[Desktop Entry\]$/ { section=1; next }
+        /^\[/ { section=0 }
+        section && $1=="Name" {
+            print substr($0,index($0,"=")+1)
+            exit
+        }
+    ' "$file")
+
+if [[ -z "$name" ]] || grep -Eqi '^(Hidden|NoDisplay)=true' "$file"; then
+    continue
+fi
+
+# Ignore unwanted utilities
+case "${name,,}" in
+    "qt test"*|*"qt video capture"|"xgps"|"xgpsspeed")
+        continue
+        ;;
+esac
+
+    id="${file##*/}"
+    id="${id%.desktop}"
+
+    # Keep only the first application with this name
+    [[ -z "${apps[$name]}" ]] && apps["$name"]="$id"
+
+done < <(find "${dirs[@]}" -type f -name '*.desktop' -print0 2>/dev/null)
+
+# Display names only
+selected=$(
+    printf '%s\n' "${!apps[@]}" |
+    sort -fu |
+    wmenu -i \
+    -f "JetBrainsMono Nerd Font 16" -l 10 \
+    -N "#1a1b26d9" -n "#2ac3de" \
+    -M "#ff9e64" -m "#1a1b26" \
+    -S "#2ac3de" -s "#1a1b26"
+)
+
+# Launch selected application
+# 
+if [[ -n "$selected" ]]; then
+    id="${apps[$selected]}"
+    file=""
+
+    for dir in "${dirs[@]}"; do
+        if [[ -f "$dir/$id.desktop" ]]; then
+            file="$dir/$id.desktop"
+            break
+        fi
+    done
+
+    if [[ -n "$file" ]]; then
+        terminal=$(grep -m1 '^Terminal=' "$file" | cut -d= -f2)
+        command=$(grep -m1 '^Exec=' "$file" | cut -d= -f2-)
+
+        # Remove desktop entry field codes
+        command=$(printf '%s' "$command" | sed -E 's/%[fFuUdDnNickvm]//g')
+
+        if [[ "$terminal" == "true" ]]; then
+            foot -e sh -c "$command"
+        else
+            gtk-launch "$id"
+        fi
+    fi
+fi

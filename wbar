@@ -1,0 +1,47 @@
+#!/bin/sh
+
+bri=$(brightnessctl -m | cut -d, -f4)
+ram=$(free -h | awk '/Mem:/ {printf "%s",$3}')
+disk=$(df -h / | awk 'NR==2 {printf "%s", $3}')
+bat=$(cat /sys/class/power_supply/BAT0/capacity)
+time=$(date '+%H:%M')
+# temp=$(awk '{printf "%.0f°C", $1/1000}' /sys/class/thermal/thermal_zone0/temp)
+
+vol=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ | awk '{
+    v = int($2 * 100)
+    if ($0 ~ /MUTED/) print " "
+    else printf " %d%%", v
+}')
+
+if bluetoothctl show 2>/dev/null | grep -q 'Powered: yes'; then
+    device=$(bluetoothctl devices Connected |
+        sed 's/^Device [^ ]* //' |
+        head -n 1)
+
+    if [ -n "$device" ]; then
+        bt="󰂱 "
+    else
+        bt=" "
+    fi
+else
+    bt="󰂲 "
+fi
+
+ssid=$(iwctl station wlan0 show 2>/dev/null |
+    awk '
+        /Connected network/ {
+            ssid = substr($0, index($0, "Connected network") + length("Connected network"))
+            sub(/^[[:space:]]+/, "", ssid)
+            sub(/[[:space:]]+$/, "", ssid)
+            print ssid
+            exit
+        }
+    ')
+
+if [ -n "$ssid" ]; then
+    wifi="󰤥 $ssid"
+else
+    wifi="󰤮 off"
+fi
+
+notify-send -t 5000 " ${time}   $bri  $vol  󰂁 ${bat}%" "$wifi  $bt   ${ram}B   ${disk}iB"

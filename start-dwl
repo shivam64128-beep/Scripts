@@ -1,0 +1,8 @@
+#!/bin/sh
+
+dwl -s 'sh -c "
+    swaybg -i ~/.config/shivam/wall1.png &
+    mako &
+    wl-paste --type text --watch cliphist store &
+    battery-alert &
+"'
