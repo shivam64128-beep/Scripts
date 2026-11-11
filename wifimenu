@@ -2,7 +2,6 @@
 
 DEVICE="wlan0"
 
-# Wmenu styling
 menu() {
     wmenu -i \
         -f "JetBrainsMono Nerd Font 16" -l 10 \
@@ -11,28 +10,21 @@ menu() {
         -S "#2ac3de" -s "#1a1b26" "$@"
 }
 
-# Toggle launcher
 if pgrep -x wmenu >/dev/null; then
     pkill -x wmenu
     exit 0
 fi
 
-# Main menu
 choice=$(
-    printf "Scan & Connect\nDisconnect\nWi-Fi On\nWi-Fi Off" |
+    printf "Saved Networks\nScan & Connect\nDisconnect\nWi-Fi On\nWi-Fi Off" |
         menu
 )
 
 [ -z "$choice" ] && exit 0
 
 case "$choice" in
-    "Scan & Connect")
-        notify-send -t 1000 "Wi-Fi" "Scanning networks..."
-
-        iwctl station "$DEVICE" scan
-
-networks=$(
-    iwctl station "$DEVICE" get-networks |
+    "Saved Networks")
+        networks=$(iwctl station "$DEVICE" get-networks |
         sed -E 's/\x1B\[[0-9;]*[[:alpha:]]//g' |
         awk '
             NR > 4 && NF >= 3 {
@@ -75,21 +67,65 @@ networks=$(
         fi
         ;;
 
-    "Disconnect")
-        if iwctl station "$DEVICE" disconnect; then
-            notify-send "Wi-Fi" "Disconnected"
+
+    "Scan & Connect")
+        notify-send -t 1000 "Wi-Fi" "Scanning..."
+
+        iwctl station "$DEVICE" scan
+
+        networks=$(iwctl station "$DEVICE" get-networks |
+        sed -E 's/\x1B\[[0-9;]*[[:alpha:]]//g' |
+        awk '
+            NR > 4 && NF >= 3 {
+                connected = ($1 == ">")
+                if (connected) $1 = ""
+
+                $NF = ""
+                $(NF-1) = ""
+
+                sub(/^[[:space:]]+/, "")
+                sub(/[[:space:]]+$/, "")
+
+                if (length) {
+                    if (connected)
+                        print $0 " 󰤥 "
+                    else
+                        print $0
+                }
+            }
+        ' |
+        sort -u)
+
+        [ -z "$networks" ] && {
+            notify-send "Wi-Fi" "No networks found"
+            exit 0
+        }
+
+        ssid=$(printf '%s\n' "$networks" | menu)
+        [ -z "$ssid" ] && exit 0
+
+        password=$(printf '' | menu -p "Password: " -P)
+        [ -z "$password" ] && exit 0
+
+        if iwctl --passphrase "$password" station "$DEVICE" connect "$ssid"; then
+            notify-send "Wi-Fi" "Connected to $ssid"
+        else
+            notify-send "Wi-Fi" "Connection failed"
         fi
+        ;;
+
+    "Disconnect")
+        iwctl station "$DEVICE" disconnect &&
+            notify-send "Wi-Fi" "Disconnected"
         ;;
 
     "Wi-Fi On")
-        if iwctl device "$DEVICE" set-property Powered on; then
+        iwctl device "$DEVICE" set-property Powered on &&
             notify-send "Wi-Fi enabled"
-        fi
         ;;
 
     "Wi-Fi Off")
-        if iwctl device "$DEVICE" set-property Powered off; then
+        iwctl device "$DEVICE" set-property Powered off &&
             notify-send "Wi-Fi disabled"
-        fi
         ;;
 esac
